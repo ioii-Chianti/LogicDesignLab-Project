@@ -16,21 +16,22 @@ module addr_gen_bg(
 endmodule
 
 module addr_gen_yellow(
+    input clk_ke,
     input clk,
     input rst,
     input [9:0] h_cnt,
     input [9:0] v_cnt,
     input [2:0] collision_x,
     output reg [16:0] pixel_addr_yellow,
-    output show_yellow,
     output [2:0] yellow_x,
+    output [9:0] yellow_y,
     output reg [5:0] yellow_score
 );
     reg [9:0] position;
     reg [9:0] mask;
 
-    assign show_yellow = 1;
     assign yellow_x = 6;
+    assign yellow_y = mask;
 
     always @* begin
         if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
@@ -60,22 +61,26 @@ module addr_gen_yellow(
 endmodule
 
 module addr_gen_orange(
+    input clk_ke,
     input clk,
     input rst,
     input [9:0] h_cnt,
     input [9:0] v_cnt,
     input [2:0] collision_x,
     output reg [16:0] pixel_addr_orange,
-    output show_orange,
     output [2:0] orange_x,
+    output [9:0] orange_y,
     output reg [5:0] orange_score
 );
 
     reg [9:0] position;
     reg [9:0] mask;
 
-    assign show_orange = 1;
+    wire clk_orange;
+    clock_divider #(.n(20)) cd_b(.clk(clk_ke), .clk_div(clk_orange));
+
     assign orange_x = 3;
+    assign orange_y = mask;
 
     always @* begin
         if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
@@ -85,7 +90,7 @@ module addr_gen_orange(
         end
     end
 
-    always @ (posedge clk or posedge rst) begin
+    always @ (posedge clk_orange or posedge rst) begin
         if (rst) begin
             position <= 0;
             mask <= 0;
@@ -105,22 +110,26 @@ module addr_gen_orange(
 endmodule
 
 module addr_gen_green(
+    input clk_ke,
     input clk,
     input rst,
     input [9:0] h_cnt,
     input [9:0] v_cnt,
     input [2:0] collision_x,
     output reg [16:0] pixel_addr_green,
-    output show_green,
     output [2:0] green_x,
+    output [9:0] green_y,
     output reg [5:0] green_score
 );
 
     reg [9:0] position;
     reg [9:0] mask;
 
-    assign show_green = 1;
+    wire clk_green;
+    clock_divider #(.n(19)) cd_b(.clk(clk_ke), .clk_div(clk_green));
+
     assign green_x = 1;
+    assign green_y = mask;
 
     always @* begin
         if (green_x * 80 <= h_cnt && h_cnt < (green_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
@@ -130,7 +139,7 @@ module addr_gen_green(
         end
     end
 
-    always @ (posedge clk or posedge rst) begin
+    always @ (posedge clk_green or posedge rst) begin
         if (rst) begin
             position <= 0;
             mask <= 0;
@@ -150,43 +159,54 @@ module addr_gen_green(
 endmodule
 
 module addr_gen_bug(
+    input clk_ke,
     input clk,
     input rst,
     input [9:0] h_cnt,
     input [9:0] v_cnt,
     input [2:0] collision_x,
     output reg [16:0] pixel_addr_bug,
-    output show_bug,
-    output [2:0] bug_x,
+    output reg [2:0] bug_x,
+    output reg [9:0] bug_y,
     output reg [5:0] bug_score
 );
     reg [9:0] position;
-    reg [9:0] mask;
+    
+    wire clk_bug;
+    clock_divider #(.n(20)) cd_b(.clk(clk_ke), .clk_div(clk_bug));
 
-    assign show_bug = 1;
-    assign bug_x = 0;
+    wire [2:0] bug_x_next;
+    LFSR (.clk(clk_ke), .rst(rst), .random(bug_x_next));
 
     always @* begin
-        if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
+        if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80 && bug_y <= v_cnt && v_cnt < bug_y + 80) begin
             pixel_addr_bug = (h_cnt + 80 * (v_cnt + position)) % 6400;
         end else begin
             pixel_addr_bug = 0;
         end
     end
 
-    always @ (posedge clk or posedge rst) begin
+    always @ (posedge clk_bug or posedge rst) begin
         if (rst) begin
             position <= 0;
-            mask <= 0;
+            bug_x <= 0;
+            bug_y <= 0;
             bug_score <= 0;
         end else begin
-            if (bug_x == collision_x && mask + 80 >= 400) begin
+            if (bug_x == collision_x && bug_y + 80 >= 400) begin
                 position <= 0;
-                mask <= 0;
+                bug_x <= bug_x_next;
+                bug_y <= 0;
                 bug_score <= bug_score + 3;
             end else begin
                 position <= (position > 0) ? position - 1 : 79;
-                mask <= (mask < 479) ? mask + 1 : 0;
+                if (bug_y < 476) begin
+                    bug_x <= bug_x;
+                    bug_y <= bug_y + 1;
+                end else begin
+                    bug_x <= bug_x_next;
+                    bug_y <= 0;
+                end
                 bug_score <= bug_score;
             end
         end
@@ -206,14 +226,11 @@ module addr_gen_farmer(
     input been_ready,
 
     output reg [16:0] pixel_addr_farmer,
-    output show_farmer,
     output reg [2:0] farmer_x
 );
     parameter press_left = 4'd2;
     parameter press_right = 4'd3;
     parameter press_invalid = 4'd4;
-
-    assign show_farmer = 1;
 
     reg [2:0] farmer_x_next;
 
@@ -268,18 +285,17 @@ module mem_addr_gen(
     output [16:0] pixel_addr_orange,
     output [16:0] pixel_addr_yellow,
 
-    // output show_bg,
-    output show_bug,
-    output show_farmer,
-    output show_green,
-    output show_orange,
-    output show_yellow,
-
     output [2:0] bug_x,
     output [2:0] farmer_x,
     output [2:0] green_x,
     output [2:0] orange_x,
     output [2:0] yellow_x,
+
+    output [9:0] bug_y,
+    output [9:0] farmer_y,
+    output [9:0] green_y,
+    output [9:0] orange_y,
+    output [9:0] yellow_y,
 
     output [5:0] score_pos,
     output [5:0] score_neg
@@ -298,13 +314,14 @@ module mem_addr_gen(
     );
 
     addr_gen_bug a1(
+        .clk_ke(clk_ke),
         .clk(clk),
         .rst(rst),
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
         .pixel_addr_bug(pixel_addr_bug),
-        .show_bug(show_bug),
         .bug_x(bug_x),
+        .bug_y(bug_y),
         .collision_x(farmer_x),
         .bug_score(bug_score)
     );
@@ -316,7 +333,6 @@ module mem_addr_gen(
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
         .pixel_addr_farmer(pixel_addr_farmer),
-        .show_farmer(show_farmer),
         .farmer_x(farmer_x),
 
         .key_down(key_down),
@@ -326,37 +342,40 @@ module mem_addr_gen(
     );
 
     addr_gen_green a3(
+        .clk_ke(clk_ke),
         .clk(clk),
         .rst(rst),
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
         .pixel_addr_green(pixel_addr_green),
-        .show_green(show_green),
         .green_x(green_x),
+        .green_y(green_y),
         .collision_x(farmer_x),
         .green_score(green_score)
     );
 
     addr_gen_orange a4(
+        .clk_ke(clk_ke),
         .clk(clk),
         .rst(rst),
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
         .pixel_addr_orange(pixel_addr_orange),
-        .show_orange(show_orange),
         .orange_x(orange_x),
+        .orange_y(orange_y),
         .collision_x(farmer_x),
         .orange_score(orange_score)
     );
 
     addr_gen_yellow a5(
+        .clk_ke(clk_ke),
         .clk(clk),
         .rst(rst),
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
         .pixel_addr_yellow(pixel_addr_yellow),
-        .show_yellow(show_yellow),
         .yellow_x(yellow_x),
+        .yellow_y(yellow_y),
         .collision_x(farmer_x),
         .yellow_score(yellow_score)
     );
