@@ -95,16 +95,16 @@ module final (
     always @* begin
         if (farmer_x * 80 <= h_cnt && h_cnt < (farmer_x + 1) * 80 && 400 <= v_cnt && v_cnt < 480)
             {vgaRed, vgaGreen, vgaBlue} = pixel_farmer;
-        // end else if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80)
-        else
+        else if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
             {vgaRed, vgaGreen, vgaBlue} = pixel_bug;
-
-        // else if (green_x * 80 <= h_cnt && h_cnt < (green_x + 1) * 80)
-        //     {vgaRed, vgaGreen, vgaBlue} = pixel_green;
-        // else if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80)
-        //     {vgaRed, vgaGreen, vgaBlue} = pixel_orange;
-        // else if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80)
-        //     {vgaRed, vgaGreen, vgaBlue} = pixel_yellow;
+        else if (green_x * 80 <= h_cnt && h_cnt < (green_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+            {vgaRed, vgaGreen, vgaBlue} = pixel_green;
+        else if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+            {vgaRed, vgaGreen, vgaBlue} = pixel_orange;
+        else if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+            {vgaRed, vgaGreen, vgaBlue} = pixel_yellow;
+        else
+            {vgaRed, vgaGreen, vgaBlue} = 12'h0;
     end
 
     mem_addr_gen m(
@@ -117,14 +117,20 @@ module final (
         .pixel_addr_bug(pixel_addr_bug),
         .pixel_addr_farmer(pixel_addr_farmer),
         .pixel_addr_green(pixel_addr_green),
+        .pixel_addr_orange(pixel_addr_orange),
+        .pixel_addr_yellow(pixel_addr_yellow),
 
         .show_bug(show_bug),
         .show_farmer(show_farmer),
         .show_green(show_green),
+        .show_orange(show_orange),
+        .show_yellow(show_yellow),
 
         .bug_x(bug_x),
         .farmer_x(farmer_x),
         .green_x(green_x),
+        .orange_x(orange_x),
+        .yellow_x(yellow_x),
 
         .key_down(key_down),
         .last_change(last_change),
@@ -154,6 +160,22 @@ module final (
         .addra(pixel_addr_green),
         .dina(data[11:0]),
         .douta(pixel_green)
+    );
+
+    blk_mem_gen_4 b4(
+        .clka(clk_2),
+        .wea(0),
+        .addra(pixel_addr_orange),
+        .dina(data[11:0]),
+        .douta(pixel_orange)
+    );
+
+    blk_mem_gen_5 b5(
+        .clka(clk_2),
+        .wea(0),
+        .addra(pixel_addr_yellow),
+        .dina(data[11:0]),
+        .douta(pixel_yellow)
     );
 
     vga_controller v(

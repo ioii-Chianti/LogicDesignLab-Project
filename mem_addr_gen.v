@@ -1,3 +1,73 @@
+module addr_gen_yellow(
+    input clk,
+    input rst,
+    input [9:0] h_cnt,
+    input [9:0] v_cnt,
+    output reg [16:0] pixel_addr_yellow,
+    output show_yellow,
+    output [2:0] yellow_x
+);
+
+    reg [9:0] position;
+    reg [9:0] mask;
+
+    assign show_yellow = 1;
+    assign yellow_x = 6;
+
+    always @* begin
+        if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
+            pixel_addr_yellow = (h_cnt + 80 * (v_cnt + position)) % 6400;
+        end else begin
+            pixel_addr_yellow = 0;
+        end
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) begin
+            position <= 0;
+            mask <= 0;
+        end else begin
+            position <= (position > 0) ? position - 1 : 79;
+            mask <= (mask < 479) ? mask + 1 : 0;
+        end
+    end
+endmodule
+
+module addr_gen_orange(
+    input clk,
+    input rst,
+    input [9:0] h_cnt,
+    input [9:0] v_cnt,
+    output reg [16:0] pixel_addr_orange,
+    output show_orange,
+    output [2:0] orange_x
+);
+
+    reg [9:0] position;
+    reg [9:0] mask;
+
+    assign show_orange = 1;
+    assign orange_x = 3;
+
+    always @* begin
+        if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80 && mask <= v_cnt && v_cnt < mask + 80) begin
+            pixel_addr_orange = (h_cnt + 80 * (v_cnt + position)) % 6400;
+        end else begin
+            pixel_addr_orange = 0;
+        end
+    end
+
+    always @ (posedge clk or posedge rst) begin
+        if (rst) begin
+            position <= 0;
+            mask <= 0;
+        end else begin
+            position <= (position > 0) ? position - 1 : 79;
+            mask <= (mask < 479) ? mask + 1 : 0;
+        end
+    end
+endmodule
+
 module addr_gen_green(
     input clk,
     input rst,
@@ -139,21 +209,21 @@ module mem_addr_gen(
     output [16:0] pixel_addr_bug,
     output [16:0] pixel_addr_farmer,
     output [16:0] pixel_addr_green,
-    // output [16:0] pixel_addr_orange,
-    // output [16:0] pixel_addr_yellow,
+    output [16:0] pixel_addr_orange,
+    output [16:0] pixel_addr_yellow,
 
     // output show_bg,
     output show_bug,
     output show_farmer,
     output show_green,
-    // output show_orange,
-    // output show_yellow,
+    output show_orange,
+    output show_yellow,
 
     output [2:0] bug_x,
     output [2:0] farmer_x,
-    output [2:0] green_x
-    // output [2:0] orange_x,
-    // output [2:0] yellow_x
+    output [2:0] green_x,
+    output [2:0] orange_x,
+    output [2:0] yellow_x
 );
 
     // addr_gen_bg a0(
@@ -201,22 +271,24 @@ module mem_addr_gen(
         .green_x(green_x)
     );
 
-    // addr_gen_orange a4(
-    //     .clk(clk),
-    //     .rst(rst),
-    //     .h_cnt(h_cnt),
-    //     .v_cnt(v_cnt),
-    //     .pixel_addr_orange(pixel_addr_orange),
-    //     .show_orange(show_orange)
-    // );
+    addr_gen_orange a4(
+        .clk(clk),
+        .rst(rst),
+        .h_cnt(h_cnt),
+        .v_cnt(v_cnt),
+        .pixel_addr_orange(pixel_addr_orange),
+        .show_orange(show_orange),
+        .orange_x(orange_x)
+    );
 
-    // addr_gen_yellow a5(
-    //     .clk(clk),
-    //     .rst(rst),
-    //     .h_cnt(h_cnt),
-    //     .v_cnt(v_cnt),
-    //     .pixel_addr_yellow(pixel_addr_yellow),
-    //     .show_yellow(show_yellow)
-    // );
+    addr_gen_yellow a5(
+        .clk(clk),
+        .rst(rst),
+        .h_cnt(h_cnt),
+        .v_cnt(v_cnt),
+        .pixel_addr_yellow(pixel_addr_yellow),
+        .show_yellow(show_yellow),
+        .yellow_x(yellow_x)
+    );
 
 endmodule
