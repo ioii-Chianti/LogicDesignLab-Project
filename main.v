@@ -22,16 +22,15 @@ module final (
     debounce d2(.clk(clk), .pb(start), .pb_debounced(db_start));
     onepulse o2(.clk(clk), .pb_debounced(db_start), .pb_1pulse(_start));
 
-
     // 2. States and next signals
     parameter Init = 2'd0;
     parameter Game = 2'd1;
     parameter Win = 2'd2;
     parameter Lose = 2'd3;
     reg [1:0] state, state_next;
-    reg [5:0] score, score_next;
-    wire [5:0] score_pos, score_neg;   // display on 7-segment
-
+    reg [5:0] score, score_next;   // display on 7-segment
+    wire [5:0] score_pos, score_neg;   // collecting score from fruits
+    // corresponding behaviors for key_num 
     parameter press_left = 4'd2;
     parameter press_right = 4'd3;
     parameter press_invalid = 4'd4;
@@ -39,11 +38,11 @@ module final (
     // 3. clocks
     wire clk_7segment, clk_2, clk_21, clk_led;
     clock_divider #(.n(14)) cd0 (.clk(clk), .clk_div(clk_7segment));
-    clock_divider #(.n(2))  cd1 (.clk(clk), .clk_div(clk_2));
-    clock_divider #(.n(21)) cd2 (.clk(clk), .clk_div(clk_21));
+    clock_divider #(.n(2))  cd1 (.clk(clk), .clk_div(clk_2));   // memory used
+    clock_divider #(.n(21)) cd2 (.clk(clk), .clk_div(clk_21));  // update fruits_y
     clock_divider #(.n(24)) cd3 (.clk(clk), .clk_div(clk_led));
 
-    // keyoard signals
+    // 4. keyoard signals
     reg [3:0] key_num;  // trans keycode (last_change) to corresponding decimal
     wire [511:0] key_down;
     wire [8:0] last_change;   // last pressing keycode
@@ -72,9 +71,7 @@ module final (
 		.clk(clk)
     );
 
-    // vga signals
-    wire [11:0] data;
-
+    // 5. vga signals
     wire [16:0] pixel_addr_bg;
     wire [16:0] pixel_addr_bug;
     wire [16:0] pixel_addr_farmer;
@@ -91,16 +88,16 @@ module final (
 
     wire [2:0] bug_x, farmer_x, green_x, orange_x, yellow_x;
     wire [9:0] bug_y, farmer_y, green_y, orange_y, yellow_y;
+
     wire valid;
+    wire [11:0] data;
     wire [9:0] h_cnt, v_cnt;
 
+    // display Game
     always @* begin
         case (state)
             Init: begin
-                if (0 <= h_cnt && h_cnt < 640 && 0 <= v_cnt && v_cnt < 480)
-                    {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
-                else
-                    {vgaRed, vgaGreen, vgaBlue} = {12{1'b0}};
+                {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
             end
             Game: begin
                 if (farmer_x * 80 <= h_cnt && h_cnt < (farmer_x + 1) * 80 && 400 <= v_cnt && v_cnt < 480)
@@ -125,6 +122,7 @@ module final (
         endcase
     end
 
+    // 6. memory addr generator & block mem
     mem_addr_gen m(
         .clk_100MHz(clk),
         .clk(clk_21),
@@ -139,6 +137,7 @@ module final (
         .pixel_addr_orange(pixel_addr_orange),
         .pixel_addr_yellow(pixel_addr_yellow),
 
+        // (x, y) for display images
         .bug_x(bug_x),
         .farmer_x(farmer_x),
         .green_x(green_x),
@@ -151,11 +150,13 @@ module final (
         .orange_y(orange_y),
         .yellow_y(yellow_y),
 
+        // key actions for moving farmer
         .key_down(key_down),
         .last_change(last_change),
         .been_ready(been_ready),
         .key_num(key_num),
 
+        // collect all scores for state transition
         .score_pos(score_pos),
         .score_neg(score_neg)
     );
@@ -218,7 +219,7 @@ module final (
         .v_cnt(v_cnt)
     );
 
-    // 4. Update states
+    // 7. Update states and score
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= Init;
@@ -229,7 +230,7 @@ module final (
         end
     end
 
-    // 5. Update next states
+    // 8. Update next states and score
     always @* begin
         case (state)
             Init: begin
@@ -237,7 +238,6 @@ module final (
                 score_next = 0;
             end
             Game: begin
-                
                 if (score_pos - score_neg >= 30) begin
                     score_next = 0;
                     state_next = Win;
@@ -246,7 +246,7 @@ module final (
                     state_next = Lose;
                 end else begin
                     score_next = score_pos - score_neg;
-                    state_next = _start ? Init : Game;
+                    state_next = Game;
                 end
             end
             Win: begin
@@ -260,33 +260,17 @@ module final (
         endcase
     end
 
-    // 6. set LED
+    // 9. set LED
     always @(posedge clk_led) begin
         case (state)
             Init: LED <=  {16{1'b0}};
             Game: LED <= (LED == {16{1'b0}}) ? 16'b0101_0101_0101_0101 : ~LED;
-            Win: LED <= {16{1'b1}};
-            Lose: LED <= {16{1'b0}};
+            Win: LED <= {{8{1'b1}}, {8{1'b0}}};
+            Lose: LED <= {{8{1'b0}}, {8{1'b1}}};
         endcase
     end
-    
-    // always @* begin
-    //     case (state)
-    //         Set: begin
-    //             LED_next = {16{1'b0}};
-    //             LED_next[selectedDigit + 8] = 1;
-    //         end
-    //         Guess: begin
-    //             LED_next = {16{1'b0}};
-    //             LED_next[selectedDigit + 4] = 1;
-    //         end
-    //         Correct:
-    //             LED_next = (LED[0] == 0) ? {16{1'b1}} : {16{1'b0}};
-    //     endcase
-    // end
 
-
-    // 7. 7-segment
+    // 10. 7-segment
     reg [3:0] display;
     reg [3:0] digit_0, digit_1, digit_2, digit_3;
 
@@ -298,11 +282,23 @@ module final (
                 digit_2 = 10;
                 digit_3 = 10;
             end
-            Game: begin    // ans 
+            Game: begin   // score
                 digit_0 = score % 10;
                 digit_1 = score / 10;
-                digit_2 = 6;
-                digit_3 = 5;
+                digit_2 = 15;
+                digit_3 = 15;
+            end
+            Win: begin    // End
+                digit_0 = 13;
+                digit_1 = 12;
+                digit_2 = 11;
+                digit_3 = 15;
+            end
+            Lose: begin   // End
+                digit_0 = 13;
+                digit_1 = 12;
+                digit_2 = 11;
+                digit_3 = 15;
             end
         endcase
     end
@@ -345,8 +341,10 @@ module final (
             4'd7: DISPLAY = 7'b111_1000;
             4'd8: DISPLAY = 7'b000_0000;
             4'd9: DISPLAY = 7'b001_0000;
-            // dash
-            4'd10: DISPLAY = 7'b011_1111;
+            4'd10: DISPLAY = 7'b011_1111; // dash
+            4'd11: DISPLAY = 7'b000_0110; // E
+            4'd12: DISPLAY = 7'b010_1011; // n
+            4'd13: DISPLAY = 7'b010_0001; // d
             default: DISPLAY = 7'b111_1111;
         endcase
     end
