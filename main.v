@@ -29,7 +29,8 @@ module final (
     parameter Win = 2'd2;
     parameter Lose = 2'd3;
     reg [1:0] state, state_next;
-    reg [6:0] cnt, cnt_next, score, score_next;   // display on 7-segment
+    reg [5:0] score, score_next;
+    wire [5:0] score_pos, score_neg;   // display on 7-segment
 
     parameter press_left = 4'd2;
     parameter press_right = 4'd3;
@@ -74,12 +75,14 @@ module final (
     // vga signals
     wire [11:0] data;
 
+    wire [16:0] pixel_addr_bg;
     wire [16:0] pixel_addr_bug;
     wire [16:0] pixel_addr_farmer;
     wire [16:0] pixel_addr_green;
     wire [16:0] pixel_addr_orange;
     wire [16:0] pixel_addr_yellow;
 
+    wire [11:0] pixel_bg;
     wire [11:0] pixel_bug;
     wire [11:0] pixel_farmer;
     wire [11:0] pixel_green;
@@ -93,18 +96,37 @@ module final (
     wire [9:0] h_cnt, v_cnt;
 
     always @* begin
-        if (farmer_x * 80 <= h_cnt && h_cnt < (farmer_x + 1) * 80 && 400 <= v_cnt && v_cnt < 480)
-            {vgaRed, vgaGreen, vgaBlue} = pixel_farmer;
-        else if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
-            {vgaRed, vgaGreen, vgaBlue} = pixel_bug;
-        else if (green_x * 80 <= h_cnt && h_cnt < (green_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
-            {vgaRed, vgaGreen, vgaBlue} = pixel_green;
-        else if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
-            {vgaRed, vgaGreen, vgaBlue} = pixel_orange;
-        else if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
-            {vgaRed, vgaGreen, vgaBlue} = pixel_yellow;
-        else
-            {vgaRed, vgaGreen, vgaBlue} = 12'h0;
+        case (state)
+            Init: begin
+                if (0 <= h_cnt && h_cnt < 640 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
+                else
+                    {vgaRed, vgaGreen, vgaBlue} = {12{1'b0}};
+            end
+            Game: begin
+                if (farmer_x * 80 <= h_cnt && h_cnt < (farmer_x + 1) * 80 && 400 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_farmer;
+                else if (bug_x * 80 <= h_cnt && h_cnt < (bug_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_bug;
+                else if (green_x * 80 <= h_cnt && h_cnt < (green_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_green;
+                else if (orange_x * 80 <= h_cnt && h_cnt < (orange_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_orange;
+                else if (yellow_x * 80 <= h_cnt && h_cnt < (yellow_x + 1) * 80 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_yellow;
+                else if (0 <= h_cnt && h_cnt < 640 && 0 <= v_cnt && v_cnt < 480)
+                    {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
+                //     {vgaRed, vgaGreen, vgaBlue} = {12{1'b0}};
+                // if ({vgaRed, vgaGreen, vgaBlue} == {12{1'b0}})
+                //     {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
+            end
+            Win: begin
+                {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
+            end
+            Lose: begin
+                {vgaRed, vgaGreen, vgaBlue} = pixel_bg;
+            end
+        endcase
     end
 
     mem_addr_gen m(
@@ -114,6 +136,7 @@ module final (
         .h_cnt(h_cnt),
         .v_cnt(v_cnt),
 
+        .pixel_addr_bg(pixel_addr_bg),
         .pixel_addr_bug(pixel_addr_bug),
         .pixel_addr_farmer(pixel_addr_farmer),
         .pixel_addr_green(pixel_addr_green),
@@ -135,7 +158,18 @@ module final (
         .key_down(key_down),
         .last_change(last_change),
         .been_ready(been_ready),
-        .key_num(key_num)
+        .key_num(key_num),
+
+        .score_pos(score_pos),
+        .score_neg(score_neg)
+    );
+
+    blk_mem_gen_0 b0(
+        .clka(clk_2),
+        .wea(0),
+        .addra(pixel_addr_bg),
+        .dina(data[11:0]),
+        .douta(pixel_bg)
     );
 
     blk_mem_gen_1 b1(
@@ -192,8 +226,10 @@ module final (
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= Init;
+            score <= 0;
         end else begin
             state <= state_next;
+            score <= score_next;
         end
     end
 
@@ -202,9 +238,28 @@ module final (
         case (state)
             Init: begin
                 state_next = _start ? Game : Init;
+                score_next = 0;
             end
             Game: begin
-                state_next = _start ? Init : Game;
+                
+                if (score_pos - score_neg >= 30) begin
+                    score_next = 0;
+                    state_next = Win;
+                end else if (score_pos - score_neg < 0) begin
+                    score_next = 0;
+                    state_next = Lose;
+                end else begin
+                    score_next = score_pos - score_neg;
+                    state_next = _start ? Init : Game;
+                end
+            end
+            Win: begin
+                score_next = 0;
+                state_next = _start ? Init : Win;
+            end
+            Lose: begin
+                score_next = 0;
+                state_next = _start ? Init : Lose;
             end
         endcase
     end
@@ -248,8 +303,8 @@ module final (
                 digit_3 = 10;
             end
             Game: begin    // ans 
-                digit_0 = 8;
-                digit_1 = 7;
+                digit_0 = score % 10;
+                digit_1 = score / 10;
                 digit_2 = 6;
                 digit_3 = 5;
             end
