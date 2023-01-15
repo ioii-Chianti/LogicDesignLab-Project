@@ -126,7 +126,7 @@ module final (
     end
 
     mem_addr_gen m(
-        .clk_ke(clk),
+        .clk_100MHz(clk),
         .clk(clk_21),
         .rst(rst),
         .h_cnt(h_cnt),
