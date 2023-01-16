@@ -1,4 +1,4 @@
-module final (
+module main (
     input clk,
     input rst,
     input start,
@@ -87,7 +87,7 @@ module final (
     wire [11:0] pixel_yellow;
 
     wire [2:0] bug_x, farmer_x, green_x, orange_x, yellow_x;
-    wire [9:0] bug_y, farmer_y, green_y, orange_y, yellow_y;
+    wire [9:0] bug_y, green_y, orange_y, yellow_y;
 
     wire valid;
     wire [11:0] data;
@@ -145,7 +145,6 @@ module final (
         .yellow_x(yellow_x),
 
         .bug_y(bug_y),
-        .farmer_y(farmer_y),
         .green_y(green_y),
         .orange_y(orange_y),
         .yellow_y(yellow_y),
@@ -265,7 +264,7 @@ module final (
         case (state)
             Init: LED <=  {16{1'b0}};
             Game: LED <= (LED == {16{1'b0}}) ? 16'b0101_0101_0101_0101 : ~LED;
-            Win: LED <= {{8{1'b1}}, {8{1'b0}}};
+            Win:  LED <= {{8{1'b1}}, {8{1'b0}}};
             Lose: LED <= {{8{1'b0}}, {8{1'b1}}};
         endcase
     end

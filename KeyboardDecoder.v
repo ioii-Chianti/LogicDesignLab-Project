@@ -1,4 +1,4 @@
-module KeyboardDecoder(
+module KeyboardDecoder (
 	output reg [511:0] key_down,
 	output wire [8:0] last_change,
 	output reg key_valid,
@@ -6,8 +6,7 @@ module KeyboardDecoder(
 	inout wire PS2_CLK,
 	input wire rst,
 	input wire clk
-    );
-    
+);
     parameter [1:0] INIT			= 2'b00;
     parameter [1:0] WAIT_FOR_SIGNAL = 2'b01;
     parameter [1:0] GET_SIGNAL_DOWN = 2'b10;
@@ -41,12 +40,6 @@ module KeyboardDecoder(
 		.rst(rst),
 		.clk(clk)
 	);
-	
-	// OnePulse op (
-	// 	.signal_single_pulse(pulse_been_ready),
-	// 	.signal(been_ready),
-	// 	.clock(clk)
-	// );
 
 	onepulse op (
 		.pb_1pulse(pulse_been_ready),
